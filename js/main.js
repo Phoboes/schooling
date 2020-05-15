@@ -4,7 +4,7 @@ window.onload = () => {
   ctx = canvas.getContext('2d');
   const b1 = boid.make( 1, 10, 30, 35, 290, 3, canvas.width / 2, canvas.height /2 )[0];
 
-  for( let i = 0; i < 500; i++ ){
+  for( let i = 0; i < 1000; i++ ){
       boid.make( 1, 5, 36, 35, util.range(0, 360), 2, util.range(50, canvas.width), util.range(50, canvas.width) )
   }
 
@@ -19,7 +19,7 @@ let canvas, ctx;
 
 const boid = {
   collection: [],
-  newModel: ( type = '', size, viewRange, fieldOfView, degrees, speed, x, y ) => {
+  newModel: ( type = '', size, viewRange, fieldOfView, degrees, speed, x, y, opacity ) => {
     const model = {
       type: type || '',
       size: size || 5,
@@ -30,14 +30,15 @@ const boid = {
       x: x || 100,
       y: y || 100,
       currentlyTurning: false,
-      currentTurnDegree: 0
+      currentTurnDegree: 0,
+      opacity,
     };
     return model;
   },
 
   make: ( qty = 1, type = '', viewRange, fieldOfView, degrees, speed, x, y ) => {
     for( let i = 0; i < qty; i++ ){
-      boid.collection.push( boid.newModel( qty, type = '', viewRange, fieldOfView, degrees, speed, x, y ) );
+      boid.collection.push( boid.newModel( qty, type = '', viewRange, fieldOfView, degrees, speed, x, y, ) );
     }
     return boid.collection;
   },
@@ -125,24 +126,32 @@ const render = {
       ( boid.collide.wall( boidPathAhead.port ) || 
       boid.collide.wall( boidPathAhead.starboard ) ) 
     ){
+      cell.opacity= util.range(0.1, 0.8);
       render.drawCell( cell );
       return;
     }
 
     if( boid.collide.wall( boidPathAhead.port ) ){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = ( cell.fieldOfView * 0.1 ) * -1;
+      cell.currentTurnDegree = ( 
+        cell.fieldOfView * 0.3 
+        + ( util.range(0, 10) * Math.floor(Math.random()*2) == 1 ? 1 : -1) ) * -1;
+        // cell.speed = cell.speed * 2;
       render.drawCell( cell );
       return;
     } else if (boid.collide.wall( boidPathAhead.starboard )){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = ( cell.fieldOfView * 0.1 ) ;
+      cell.currentTurnDegree = ( 
+        cell.fieldOfView * 0.3 
+        + ( util.range(0, 10) * Math.floor(Math.random()*2) == 1 ? 1 : -1) ) ;
+        // cell.speed = cell.speed * 2;
       render.drawCell( cell );
       return;      
     }
 
     cell.currentTurnDegree = 0;
     cell.currentlyTurning = false;
+    cell.speed = 3;
     render.drawCell( cell );
   },
 
@@ -153,6 +162,7 @@ const render = {
     let portAngle = util.toRadian( cell.degrees + 25 );
     let starboardAngle = util.toRadian( cell.degrees - 25 );
     ctx.beginPath();
+    ctx.globalAlpha = cell.opacity;
     ctx.moveTo( cell.x, cell.y );
     let x = cell.size * Math.cos(portAngle);
     let y = cell.size * Math.sin(portAngle);

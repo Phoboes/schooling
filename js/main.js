@@ -2,7 +2,12 @@ window.onload = () => {
   console.log("Onload complete.")
   canvas = document.querySelector('canvas');
   ctx = canvas.getContext('2d');
-  const b1 = boid.make( 1, 10, 30, 35, 45, 3, canvas.width / 2, canvas.height /2 )[0];
+  const b1 = boid.make( 1, 10, 30, 35, 290, 3, canvas.width / 2, canvas.height /2 )[0];
+
+  for( let i = 0; i < 100; i++ ){
+      boid.make( 1, 5, 36, 35, util.range(0, 360), 2, util.range(50, canvas.width), util.range(50, canvas.width) )
+  }
+
   window.requestAnimationFrame( render.allCells );
 };
 
@@ -32,7 +37,7 @@ const boid = {
 
   make: ( qty = 1, type = '', viewRange, fieldOfView, degrees, speed, x, y ) => {
     for( let i = 0; i < qty; i++ ){
-      boid.collection.push( boid.newModel( qty = 1, type = '', viewRange, fieldOfView, degrees, speed, x, y ) );
+      boid.collection.push( boid.newModel( qty, type = '', viewRange, fieldOfView, degrees, speed, x, y ) );
     }
     return boid.collection;
   },
@@ -61,19 +66,12 @@ const boid = {
   },
 
   updateCoordinates: ( cell ) => {
-    // debugger
-    if( cell.currentTurnDegree > 0 ){
-      cell.degrees += cell.currentTurnDegree;
-      debugger
-    } else if( cell.currentTurnDegree < 0 ){
-      // debugger
-      cell.degrees -= cell.currentTurnDegree;
-    }
 
-    // console.log( cell.degrees )
+    if( cell.currentlyTurning ){
+      cell.degrees += cell.currentTurnDegree;
+    } 
 
     let angle = util.toRadian( cell.degrees );
-
     cell.x += cell.speed * Math.cos(angle);   
     cell.y += cell.speed * Math.sin(angle);
   }
@@ -96,7 +94,7 @@ const util = {
   },
 
   toRadian: ( degrees ) => {
-    // The default 0 for canvas is right -90 converts it to up.
+    // The default 0 for canvas is to the right, -90 converts it to up.
     return ( degrees - 90 ) * Math.PI / 180;
   }
   
@@ -116,20 +114,29 @@ const render = {
       cell.degrees = cell.degrees + 360;
     }
 
+    // Temporary range checker -- replace
     // render.tempCheck( cell, cell.degrees );
 
     const boidPathAhead = render.frontalCone( cell );
 
     boid.updateCoordinates( cell );
     
+    if( cell.currentlyTurning && 
+      ( boid.collide.wall( boidPathAhead.port ) || 
+      boid.collide.wall( boidPathAhead.starboard ) ) 
+    ){
+      render.drawCell( cell );
+      return;
+    }
+
     if( boid.collide.wall( boidPathAhead.port ) ){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = cell.fieldOfView * 0.5;
+      cell.currentTurnDegree = ( cell.fieldOfView * 0.5 ) * -1;
       render.drawCell( cell );
       return;
     } else if (boid.collide.wall( boidPathAhead.starboard )){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = (cell.fieldOfView * 0.5) * -1 ;
+      cell.currentTurnDegree = ( cell.fieldOfView * 0.5 ) ;
       render.drawCell( cell );
       return;      
     }
@@ -142,8 +149,6 @@ const render = {
   drawCell: ( cell ) => {
     const cx = cell.x + cell.size * 0.5;
     const cy = cell.y + cell.size * 0.5;
-
-    // render.boid( cell.x, cell.y, cell.size, 30 );
 
     let portAngle = util.toRadian( cell.degrees + 25 );
     let starboardAngle = util.toRadian( cell.degrees - 25 );
@@ -168,15 +173,14 @@ const render = {
 
   tempCheck: ( cell, degrees ) => {
     for( let i = cell.size + 2; i < cell.viewRange; i += cell.viewRange / 5 ){
-      // debugger
 
       const scanAhead = {
         degrees: cell.degrees,
         x: cell.x + (i * Math.cos( util.toRadian(degrees) )) + 2.5,
         y: cell.y + (i * Math.sin( util.toRadian(degrees) )) + 2.5,
-        // size: cell.size
       }
 
+      // Display detection points
       // ctx.fillRect( scanAhead.x, scanAhead.y, 2 , 2 )
 
       if( boid.collide.wall( scanAhead ) ){
@@ -189,7 +193,6 @@ const render = {
 
   allCells: () => {
     ctx.clearRect( 0, 0, canvas.width, canvas.height );
-    // debugger
     for( let i = 0; i < boid.collection.length; i++ ){
       render.moveCell( boid.collection[i] ); 
     }

@@ -2,12 +2,8 @@ window.onload = () => {
   console.log("Onload complete.")
   canvas = document.querySelector('canvas');
   ctx = canvas.getContext('2d');
-  const b1 = boid.make( 1, 5, 30, 35, 0, 10, canvas.width / 2, canvas.height /2 )[0];
-  console.log( b1.degrees )
-
-  // ctx.fillRect(boid.collection[0].x, boid.collection[0].y, 3, 3);
-  // render.drawCell( b1 );
-  console.log( b1.degrees )
+  const b1 = boid.make( 1, 10, 30, 35, 45, 3, canvas.width / 2, canvas.height /2 )[0];
+  window.requestAnimationFrame( render.allCells );
 };
 
 let canvas, ctx;
@@ -27,7 +23,9 @@ const boid = {
       degrees: degrees || 0,
       speed: speed || 1,
       x: x || 100,
-      y: y || 100
+      y: y || 100,
+      currentlyTurning: false,
+      currentTurnDegree: 0
     };
     return model;
   },
@@ -37,6 +35,47 @@ const boid = {
       boid.collection.push( boid.newModel( qty = 1, type = '', viewRange, fieldOfView, degrees, speed, x, y ) );
     }
     return boid.collection;
+  },
+
+  // --------------------------------
+  // Boid collision utilities
+  // --------------------------------
+
+  collide: {
+    wall: ( cell ) => {
+      if( 
+        cell.x >= canvas.width - 5 ||
+        cell.y >= canvas.height - 5 ||
+        cell.x < 3 ||
+        cell.y < 3
+      ){
+        return true;
+      } else {
+        return false;
+      }
+    },
+
+    boid: {
+      // Todo.
+    }
+  },
+
+  updateCoordinates: ( cell ) => {
+    // debugger
+    if( cell.currentTurnDegree > 0 ){
+      cell.degrees += cell.currentTurnDegree;
+      debugger
+    } else if( cell.currentTurnDegree < 0 ){
+      // debugger
+      cell.degrees -= cell.currentTurnDegree;
+    }
+
+    // console.log( cell.degrees )
+
+    let angle = util.toRadian( cell.degrees );
+
+    cell.x += cell.speed * Math.cos(angle);   
+    cell.y += cell.speed * Math.sin(angle);
   }
 };
 
@@ -60,7 +99,6 @@ const util = {
     // The default 0 for canvas is right -90 converts it to up.
     return ( degrees - 90 ) * Math.PI / 180;
   }
-
   
 };
 
@@ -70,21 +108,6 @@ const util = {
 
 const render = {
 
-  rotateCell: ( cell ) => {
-    // Snapshot the canvas
-    const cx = cell.x + cell.size * 0.5;
-    const cy = cell.y + cell.size * 0.5
-
-    ctx.save();
-    ctx.translate( cx, cy );
-    ctx.rotate( cell.degrees * Math.PI / 180 );
-
-    ctx.translate( -cx , -cy );
-    //  ctx.drawImage(image, -2.5, -2.5);
-    render.drawArrow( cell.x, cell.y, cell.size, 30 );
-    ctx.restore();
-  },
-
   moveCell: ( cell ) => {
     // get those annoying over 360 values out of the way asap.
     if(cell.degrees > 360 ){
@@ -93,39 +116,119 @@ const render = {
       cell.degrees = cell.degrees + 360;
     }
 
-    let angle = util.toRadian( cell.degrees ); // compensate angle -90°, conv. to rad
-    cell.x += cell.speed * Math.cos(angle);   
-    cell.y += cell.speed * Math.sin(angle);
+    // render.tempCheck( cell, cell.degrees );
+
+    const boidPathAhead = render.frontalCone( cell );
+
+    boid.updateCoordinates( cell );
+    
+    if( boid.collide.wall( boidPathAhead.port ) ){
+      cell.currentlyTurning = true;
+      cell.currentTurnDegree = cell.fieldOfView * 0.5;
+      render.drawCell( cell );
+      return;
+    } else if (boid.collide.wall( boidPathAhead.starboard )){
+      cell.currentlyTurning = true;
+      cell.currentTurnDegree = (cell.fieldOfView * 0.5) * -1 ;
+      render.drawCell( cell );
+      return;      
+    }
+
+    cell.currentTurnDegree = 0;
+    cell.currentlyTurning = false;
     render.drawCell( cell );
   },
 
   drawCell: ( cell ) => {
-    render.rotateCell( cell );
-    // render.drawArrow( cell )
+    const cx = cell.x + cell.size * 0.5;
+    const cy = cell.y + cell.size * 0.5;
+
+    // render.boid( cell.x, cell.y, cell.size, 30 );
+
+    let portAngle = util.toRadian( cell.degrees + 25 );
+    let starboardAngle = util.toRadian( cell.degrees - 25 );
+    ctx.beginPath();
+    ctx.moveTo( cell.x, cell.y );
+    let x = cell.size * Math.cos(portAngle);
+    let y = cell.size * Math.sin(portAngle);
+    ctx.lineTo( cell.x - x, cell.y - y );
+    ctx.fillStyle = "red";
+    ctx.stroke();
+    ctx.closePath();
+    // ctx.beginPath();
+    x = cell.size * Math.cos(starboardAngle);
+    y = cell.size * Math.sin(starboardAngle);
+    ctx.lineTo( cell.x - x, cell.y - y );
+    ctx.stroke();
+    ctx.lineTo( cell.x, cell.y);
+    ctx.fill();
+    ctx.fillStyle = "red";
+    ctx.globalAlpha = 1;
   },
 
-  // drawArrow: ( cell ) => {
-  //   let angle = util.toRadian( cell.degrees + 30 )
-  //   ctx.beginPath();
-  //   ctx.moveTo(cell.x, cell.y);
-  //   ctx.lineTo(cell.x - ( cell.size * Math.cos(angle) ), cell.y - ( cell.size ) * ( Math.sin(angle) ));
-  //   ctx.stroke();
-  //   ctx.beginPath();
-  //   ctx.moveTo(cell.x, cell.y);
-  //   ctx.lineTo(cell.x + ( cell.size * Math.cos(angle) ), cell.y - ( cell.size) * ( Math.sin(angle) ));
-  //   ctx.stroke();
-  // }
+  tempCheck: ( cell, degrees ) => {
+    for( let i = cell.size + 2; i < cell.viewRange; i += cell.viewRange / 5 ){
+      // debugger
 
-  drawArrow: ( x, y, size, degrees ) => {
-    let angle = util.toRadian( degrees )
+      const scanAhead = {
+        degrees: cell.degrees,
+        x: cell.x + (i * Math.cos( util.toRadian(degrees) )) + 2.5,
+        y: cell.y + (i * Math.sin( util.toRadian(degrees) )) + 2.5,
+        // size: cell.size
+      }
+
+      // ctx.fillRect( scanAhead.x, scanAhead.y, 2 , 2 )
+
+      if( boid.collide.wall( scanAhead ) ){
+        cell.degrees += cell.fieldOfView;
+        break;
+
+      }
+    }
+  },
+
+  allCells: () => {
+    ctx.clearRect( 0, 0, canvas.width, canvas.height );
+    // debugger
+    for( let i = 0; i < boid.collection.length; i++ ){
+      render.moveCell( boid.collection[i] ); 
+    }
+    requestAnimationFrame( render.allCells );
+  },
+
+  frontalCone: ( cell, angle1, angle2 ) => {
+
+    // Purely for readability purposes
+    const port = {
+      angle: util.toRadian( cell.degrees + cell.fieldOfView ),
+      x: null,
+      y: null
+    };
+
+    // These are defined after port as items within the object can't be used before the object is defined.
+    // i.e x can't immediately be set with port.angle
+    port.x = cell.x + cell.viewRange * Math.cos(port.angle);
+    port.y = cell.y + cell.viewRange * Math.sin(port.angle);
+
+    const starboard = {
+      angle: util.toRadian( cell.degrees - cell.fieldOfView ),
+      x: null,
+      y: null
+    };
+
+    starboard.x = cell.x + cell.viewRange * Math.cos(starboard.angle);
+    starboard.y = cell.y + cell.viewRange * Math.sin(starboard.angle);
+    
+    ctx.moveTo( cell.x, cell.y );
     ctx.beginPath();
-    ctx.moveTo( x,  y);
-    ctx.lineTo( x - (  size * Math.cos(angle) ),  y - (  size ) * ( Math.sin(angle) ));
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo( x,  y);
-    ctx.lineTo( x + (  size * Math.cos(angle) ), y - ( size) * ( Math.sin(angle) ));
-    ctx.stroke();
+    ctx.lineTo( port.x, port.y );
+    ctx.lineTo( starboard.x, starboard.y );
+    ctx.lineTo( cell.x, cell.y);
+    ctx.globalAlpha = 0.1
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    return { port, starboard };
   }
 
 };

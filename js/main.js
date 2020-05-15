@@ -4,7 +4,7 @@ window.onload = () => {
   ctx = canvas.getContext('2d');
   const b1 = boid.make( 1, 10, 30, 35, 290, 3, canvas.width / 2, canvas.height /2 )[0];
 
-  for( let i = 0; i < 100; i++ ){
+  for( let i = 0; i < 500; i++ ){
       boid.make( 1, 5, 36, 35, util.range(0, 360), 2, util.range(50, canvas.width), util.range(50, canvas.width) )
   }
 
@@ -228,7 +228,7 @@ const render = {
     ctx.lineTo( starboard.x, starboard.y );
     ctx.lineTo( cell.x, cell.y);
     ctx.globalAlpha = 0.1
-    ctx.fill();
+    // ctx.fill();
     ctx.globalAlpha = 1;
 
     return { port, starboard };

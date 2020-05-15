@@ -131,12 +131,12 @@ const render = {
 
     if( boid.collide.wall( boidPathAhead.port ) ){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = ( cell.fieldOfView * 0.5 ) * -1;
+      cell.currentTurnDegree = ( cell.fieldOfView * 0.1 ) * -1;
       render.drawCell( cell );
       return;
     } else if (boid.collide.wall( boidPathAhead.starboard )){
       cell.currentlyTurning = true;
-      cell.currentTurnDegree = ( cell.fieldOfView * 0.5 ) ;
+      cell.currentTurnDegree = ( cell.fieldOfView * 0.1 ) ;
       render.drawCell( cell );
       return;      
     }
